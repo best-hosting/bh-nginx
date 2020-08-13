@@ -1,0 +1,100 @@
+---
+
+- block:
+    - name: define | Define nginx shares global config
+      set_fact:
+        _nginx_conf: >-
+          {{ _nginx_conf
+              + [ share | combine(
+                      { 'name'  : item
+                      , 'server_name' : share.server_name | default([])
+                      , 'root'        : share.root | default(nginx_root + '/' + item)
+                      , 'access_log'  : item_access_log
+                      , 'error_log'   : item_error_log
+                      , 'cert'        : item_cert
+                      , 'privkey'     : share.privkey | default(nginx_privkey)
+                      , 'conf_include_d': item_dest + '.d'
+                      , 'tmpl'        : 'share_vhost.conf'
+                      , 'dest'        : item_dest
+                      , 'link_to'     : item_link_to
+                      }
+                    )
+                ]
+          }}
+      vars:
+        share: >-
+          {{ hostvars[nginx_host].nginx_shares[item] }}
+        item_access_log: >-
+          {{ share.access_log | default(
+                hostvars[nginx_host].nginx_log_dir + '/' + item + '-access.log'
+                  if hostvars[nginx_host].nginx_log_dir is defined
+                  else ''
+              )
+          }}
+        item_error_log: >-
+          {{ share.error_log | default(
+                hostvars[nginx_host].nginx_log_dir + '/' + item + '-error.log'
+                  if hostvars[nginx_host].nginx_log_dir is defined
+                  else ''
+              )
+          }}
+        item_cert: >-
+          {{ share.cert | default(hostvars[nginx_host].nginx_cert) }}
+        item_privkey: >-
+          {{ share.privkey | default(hostvars[nginx_host].nginx_privkey) }}
+        item_dest: >-
+          {{ hostvars[nginx_host].nginx_conf_dir | default('/etc/nginx')
+              + '/sites-available/' + item
+          }}
+        item_link_to: >-
+          {{ hostvars[nginx_host].nginx_conf_dir | default('/etc/nginx')
+              + '/sites-enabled/' + item
+          }}
+      loop: "{{ hostvars[nginx_host].nginx_shares.keys() }}"
+      delegate_facts: true
+      delegate_to: "{{ nginx_host }}"
+
+    - name: define | Define nginx shares host config
+      set_fact:
+        _nginx_host_conf: >-
+          {{  _nginx_host_conf
+                + [ item | combine(
+                      { 'name'  : item_name
+                      , 'tmpl'  : 'share.conf'
+                      , 'dest'  :   item_conf_include_d + '/' + item_name + '.conf'
+                      , 'htpasswd': item_conf_include_d + '/' + item_name + '.htpasswd'
+                      , 'root'  : item_root
+                      , 'pw' : lookup('file',
+                                    lookup('first_found',
+                                      [ 'htpasswords/' + inventory_hostname + '/' + item_name
+                                      , 'htpasswords/' + inventory_hostname + '/default'
+                                      , 'htpasswords/default'
+                                      ])
+                                    )
+                      }
+                    )
+                  ]
+          }}
+      vars:
+        item_vhost_conf: >-
+          {{ hostvars[nginx_host]._nginx_conf
+              | selectattr('name', 'equalto', item.share)
+              | first
+          }}
+        item_name: >-
+          {{ inventory_hostname }}
+        item_conf_include_d: >-
+          {{ item_vhost_conf.conf_include_d }}
+        item_root: >-
+          {{ item_vhost_conf.root + '/' + item_name }}
+      loop: "{{ nginx_host_shares }}"
+
+    - name: define | Show nginx global conf
+      debug:
+        var: hostvars[nginx_host]._nginx_conf
+
+    - name: define | Show nginx host conf
+      debug:
+        var: _nginx_host_conf
+
+  when: nginx_host is defined

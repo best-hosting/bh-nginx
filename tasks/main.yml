@@ -1,0 +1,14 @@
+---
+# tasks file for bh-nginx
+
+- name: Define variables
+  import_tasks: define.yml
+  tags:
+    - 'letsencrypt_install'
+    - always
+
+- name: Configure nginx
+  import_tasks: nginx.yml
+  tags:
+    - 'letsencrypt_install'
+

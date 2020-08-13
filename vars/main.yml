@@ -1,0 +1,7 @@
+---
+# vars file for bh-nginx
+
+# Config of nginx server.
+_nginx_conf: []
+# Config for particular host.
+_nginx_host_conf: []

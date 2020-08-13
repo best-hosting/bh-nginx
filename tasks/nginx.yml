@@ -1,0 +1,121 @@
+---
+
+- block:
+    - name: Install nginx
+      package:
+        name: 'nginx'
+        state: present
+
+  delegate_to: "{{ nginx_host }}"
+
+- block:
+    - name: Create root dir
+      file:
+        path: "{{ item.root }}"
+        state: directory
+      loop: "{{ hostvars[nginx_host]._nginx_conf  }}"
+
+    - name: Create conf include dir
+      file:
+        path: "{{ item.conf_include_d }}"
+        state: directory
+      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+
+    - name: Create nginx vhost config
+      template:
+        src: "{{ item.tmpl }}"
+        force: yes
+        backup: yes
+        dest: "{{ item.dest }}"
+      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+      notify:
+        - restart nginx
+
+  delegate_to: "{{ nginx_host }}"
+
+- block:
+    - name: Create directory for ssl certificates
+      file:
+        path: "{{ item.cert | dirname }}"
+        state: directory
+      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+
+    - name: Create directory for certificate private keys
+      file:
+        path: "{{ item.privkey | dirname }}"
+        mode: >-
+          {{ 750
+              if item.privkey | dirname != item.cert | dirname
+              else 755
+          }}
+        state: directory
+      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+
+    - name: Stat certificates
+      stat:
+        path: "{{ item.cert }}"
+      register: nginx_cert_stats
+      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+
+    - name: Stat certificate private keys
+      stat:
+        path: "{{ item.privkey }}"
+      register: nginx_privkey_stats
+      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+
+    - name: huy
+      debug:
+        msg: "{{ item.2 }}"
+      loop: >-
+        {{ hostvars[nginx_host]._nginx_conf
+            | zip(nginx_cert_stats.results, nginx_privkey_stats.results) | list
+        }}
+
+    - name: Enable vhost
+      file:
+        src: "{{ item.0.dest }}"
+        dest: "{{ item.0.link_to }}"
+        state: link
+      when: item.1.stat.exists and item.2.stat.exists
+      loop: >-
+        {{ hostvars[nginx_host]._nginx_conf
+            | zip(nginx_cert_stats.results, nginx_privkey_stats.results) | list
+        }}
+      notify:
+        - restart nginx
+
+  delegate_to: "{{ nginx_host }}"
+
+- block:
+    - name: Install python passlib
+      package:
+        name: 'python-passlib'
+        state: present
+
+    - name: Add host user to htpasswd
+      htpasswd:
+        path: "{{ item.htpasswd }}"
+        name: "{{ item.name }}"
+        password: "{{ item.pw }}"
+        create: yes
+        state: present
+      loop: "{{ _nginx_host_conf }}"
+      notify:
+        - restart nginx
+
+    - name: Create host's share config
+      template:
+        src: "{{ item.tmpl }}"
+        force: yes
+        backup: yes
+        dest: "{{ item.dest }}"
+      loop: "{{ _nginx_host_conf }}"
+      notify:
+        - restart nginx
+
+  delegate_to: "{{ nginx_host }}"
+
+  #- block:
+  #    - name: Generate passwd
+  #      htpasswd:
+  #        path: 
