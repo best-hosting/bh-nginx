@@ -1,11 +1,28 @@
 ---
 # tasks file for bh-nginx
 
+- block:
+    - name: define | Find all share servers
+      set_fact:
+        _nginx_servers: >-
+          {{ nginx_host_shares | map(attribute='server') | unique | list }}
+
+    - name: Gather facts about nginx servers
+      setup:
+      loop: "{{ _nginx_servers }}"
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+
+  tags:
+    - always
+    - nginx_define
+
 - name: Define variables
   import_tasks: define.yml
   tags:
-    - 'letsencrypt_install'
     - always
+    - letsencrypt_install
+    - nginx_define
 
 - name: Configure nginx
   import_tasks: nginx.yml

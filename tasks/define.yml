@@ -1,14 +1,15 @@
 ---
 
 - block:
-    - name: define | Define nginx shares global config
+    - name: define (server) | Define nginx shares global configs
       set_fact:
         _nginx_conf: >-
-          {{ _nginx_conf
+          {{ hostvars[item_host]._nginx_conf | default([])
               + [ share | combine(
-                      { 'name'  : item
+                      { 'host'        : item_host
+                      , 'name'        : item_name
                       , 'server_name' : share.server_name | default([])
-                      , 'root'        : share.root | default(nginx_root + '/' + item)
+                      , 'root'        : share.root | default(nginx_root + '/' + item_name)
                       , 'access_log'  : item_access_log
                       , 'error_log'   : item_error_log
                       , 'cert'        : item_cert
@@ -22,37 +23,41 @@
                 ]
           }}
       vars:
+        item_host: >-
+          {{ item.server }}
+        item_name: >-
+          {{ item.share }}
         share: >-
-          {{ hostvars[nginx_host].nginx_shares[item] }}
+          {{ hostvars[item_host].nginx_shares[item_name] }}
         item_access_log: >-
           {{ share.access_log | default(
-                hostvars[nginx_host].nginx_log_dir + '/' + item + '-access.log'
-                  if hostvars[nginx_host].nginx_log_dir is defined
+                hostvars[item_host].nginx_log_dir + '/' + item_name + '-access.log'
+                  if hostvars[item_host].nginx_log_dir is defined
                   else ''
               )
           }}
         item_error_log: >-
           {{ share.error_log | default(
-                hostvars[nginx_host].nginx_log_dir + '/' + item + '-error.log'
-                  if hostvars[nginx_host].nginx_log_dir is defined
+                hostvars[item_host].nginx_log_dir + '/' + item_name + '-error.log'
+                  if hostvars[item_host].nginx_log_dir is defined
                   else ''
               )
           }}
         item_cert: >-
-          {{ share.cert | default(hostvars[nginx_host].nginx_cert) }}
+          {{ share.cert | default(hostvars[item_host].nginx_cert) }}
         item_privkey: >-
-          {{ share.privkey | default(hostvars[nginx_host].nginx_privkey) }}
+          {{ share.privkey | default(hostvars[item_host].nginx_privkey) }}
         item_dest: >-
-          {{ hostvars[nginx_host].nginx_conf_dir | default('/etc/nginx')
-              + '/sites-available/' + item
+          {{ hostvars[item_host].nginx_conf_dir | default('/etc/nginx')
+              + '/sites-available/' + item_name
           }}
         item_link_to: >-
-          {{ hostvars[nginx_host].nginx_conf_dir | default('/etc/nginx')
-              + '/sites-enabled/' + item
+          {{ hostvars[item_host].nginx_conf_dir | default('/etc/nginx')
+              + '/sites-enabled/' + item_name
           }}
-      loop: "{{ hostvars[nginx_host].nginx_shares.keys() }}"
+      loop: "{{ nginx_host_shares }}"
       delegate_facts: true
-      delegate_to: "{{ nginx_host }}"
+      delegate_to: "{{ item.server }}"
 
     - name: define | Define nginx shares host config
       set_fact:
@@ -77,7 +82,7 @@
           }}
       vars:
         item_vhost_conf: >-
-          {{ hostvars[nginx_host]._nginx_conf
+          {{ hostvars[item.server]._nginx_conf
               | selectattr('name', 'equalto', item.share)
               | first
           }}
@@ -89,12 +94,22 @@
           {{ item_vhost_conf.root + '/' + item_name }}
       loop: "{{ nginx_host_shares }}"
 
-    - name: define | Show nginx global conf
+    - name: define | Show nginx global configs
       debug:
-        var: hostvars[nginx_host]._nginx_conf
+        var: hostvars[item.server]._nginx_conf
+      loop: "{{ nginx_host_shares }}"
 
-    - name: define | Show nginx host conf
+    - name: define | Show nginx host config
       debug:
         var: _nginx_host_conf
 
-  when: nginx_host is defined
+    - name: define | Gather all nginx global configs into single list
+      set_fact:
+        _nginx_conf_all: >-
+          {{ _nginx_conf_all + hostvars[item]._nginx_conf }}
+      loop: "{{ _nginx_servers }}"
+
+    - name: define | Show all nginx global configs
+      debug:
+        var: _nginx_conf_all
+

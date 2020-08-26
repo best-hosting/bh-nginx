@@ -1,46 +1,48 @@
 ---
 
 - block:
-    - name: Install nginx
+    - name: nginx (server) | Install
       package:
         name: 'nginx'
         state: present
-
-  delegate_to: "{{ nginx_host }}"
+      loop: "{{ _nginx_servers }}"
+      delegate_to: "{{ item }}"
 
 - block:
-    - name: Create root dir
+    - name: nginx (server) | Create root dir
       file:
         path: "{{ item.root }}"
         state: directory
-      loop: "{{ hostvars[nginx_host]._nginx_conf  }}"
+      loop: "{{ _nginx_conf_all }}"
+      delegate_to: "{{ item.host }}"
 
-    - name: Create conf include dir
+    - name: nginx (server) | Create conf include dir
       file:
         path: "{{ item.conf_include_d }}"
         state: directory
-      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+      loop: "{{ _nginx_conf_all }}"
+      delegate_to: "{{ item.host }}"
 
-    - name: Create nginx vhost config
+    - name: nginx (server) | Create nginx vhost config
       template:
         src: "{{ item.tmpl }}"
         force: yes
         backup: yes
         dest: "{{ item.dest }}"
-      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+      loop: "{{ _nginx_conf_all }}"
+      delegate_to: "{{ item.host }}"
       notify:
         - restart nginx
 
-  delegate_to: "{{ nginx_host }}"
-
 - block:
-    - name: Create directory for ssl certificates
+    - name: nginx (server) | Create directory for ssl certificates
       file:
         path: "{{ item.cert | dirname }}"
         state: directory
-      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+      loop: "{{ _nginx_conf_all }}"
+      delegate_to: "{{ item.host }}"
 
-    - name: Create directory for certificate private keys
+    - name: nginx (server) | Create directory for certificate private keys
       file:
         path: "{{ item.privkey | dirname }}"
         mode: >-
@@ -49,50 +51,46 @@
               else 755
           }}
         state: directory
-      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+      loop: "{{ _nginx_conf_all }}"
+      delegate_to: "{{ item.host }}"
 
-    - name: Stat certificates
+    - name: nginx (server) | Stat certificates
       stat:
         path: "{{ item.cert }}"
       register: nginx_cert_stats
-      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+      loop: "{{ _nginx_conf_all }}"
+      delegate_to: "{{ item.host }}"
 
-    - name: Stat certificate private keys
+    - name: nginx (server) | Stat certificate private keys
       stat:
         path: "{{ item.privkey }}"
       register: nginx_privkey_stats
-      loop: "{{ hostvars[nginx_host]._nginx_conf }}"
+      loop: "{{ _nginx_conf_all }}"
+      delegate_to: "{{ item.host }}"
 
-    - name: huy
-      debug:
-        msg: "{{ item.2 }}"
-      loop: >-
-        {{ hostvars[nginx_host]._nginx_conf
-            | zip(nginx_cert_stats.results, nginx_privkey_stats.results) | list
-        }}
-
-    - name: Enable vhost
+    - name: nginx (server) | Enable vhost
       file:
         src: "{{ item.0.dest }}"
         dest: "{{ item.0.link_to }}"
         state: link
       when: item.1.stat.exists and item.2.stat.exists
       loop: >-
-        {{ hostvars[nginx_host]._nginx_conf
+        {{ _nginx_conf_all
             | zip(nginx_cert_stats.results, nginx_privkey_stats.results) | list
         }}
+      delegate_to: "{{ item.0.host }}"
       notify:
         - restart nginx
 
-  delegate_to: "{{ nginx_host }}"
-
 - block:
-    - name: Install python passlib
+    - name: nginx (server) | Install python passlib
       package:
         name: 'python-passlib'
         state: present
+      loop: "{{ _nginx_host_conf }}"
+      delegate_to: "{{ item.server }}"
 
-    - name: Add host user to htpasswd
+    - name: nginx (server) | Add host user to htpasswd
       htpasswd:
         path: "{{ item.htpasswd }}"
         name: "{{ item.name }}"
@@ -100,22 +98,18 @@
         create: yes
         state: present
       loop: "{{ _nginx_host_conf }}"
+      delegate_to: "{{ item.server }}"
       notify:
         - restart nginx
 
-    - name: Create host's share config
+    - name: nginx (server) | Create host's share config
       template:
         src: "{{ item.tmpl }}"
         force: yes
         backup: yes
         dest: "{{ item.dest }}"
       loop: "{{ _nginx_host_conf }}"
+      delegate_to: "{{ item.server }}"
       notify:
         - restart nginx
 
-  delegate_to: "{{ nginx_host }}"
-
-  #- block:
-  #    - name: Generate passwd
-  #      htpasswd:
-  #        path: 

@@ -1,7 +1,12 @@
 ---
 # vars file for bh-nginx
 
-# Config of nginx server.
+# Vhost config on nginx server.
 _nginx_conf: []
-# Config for particular host.
+# All vhost configs from all used nginx servers into single list.
+_nginx_conf_all: []
+# Current host specific config part.
 _nginx_host_conf: []
+
+# All nginx servers, which uses current host.
+_nginx_servers: []
