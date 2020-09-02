@@ -2,4 +2,5 @@
 
 - name: restart nginx
   service: name=nginx state=restarted
-  delegate_to: "{{ nginx_host }}"
+  loop: "{{ _nginx_servers }}"
+  delegate_to: "{{ item }}"
