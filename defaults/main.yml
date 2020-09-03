@@ -1,10 +1,19 @@
 ---
-# defaults file for bh-nginx
-nginx_root: '/var/www'
+# Should be defined, if access and error logs are needed.
 #nginx_log_dir: '/var/log/nginx'
-#nginx_cert: ''
-#nginx_privkey: ''
 nginx_conf_dir: '/etc/nginx'
 
-nginx_shares: {}
+# Dictionary of definition of share vhost on nginx server.
+# - 'server_name' - list of vhost names. Required.
+# - 'cert' - certificate file. Required.
+# - 'privkey' - certificate private keyfile. Required.
+# Dict element name is share name, which may be used in 'nginx_host_shares'.
+nginx_vhosts: {}
+
+# List of definitions of shares used by host.
+# - 'share' - share name (dict name in 'nginx_shares'). Required.
+# - 'server' - server, where this share is defined. Requird.
 nginx_host_shares: []
+
+# Nginx reverse proxy definitions.
+nginx_host_rproxy: []

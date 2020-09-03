@@ -13,23 +13,33 @@
       file:
         path: "{{ item.root }}"
         state: directory
-      loop: "{{ _nginx_conf_all }}"
+      loop: "{{ _nginx_vhosts_all }}"
+      delegate_to: "{{ item.host }}"
+
+    - name: nginx (server) | Create default index file
+      template:
+        src: 'index.html'
+        force: yes
+        backup: yes
+        dest: "{{ item.root + '/index.html' }}"
+      loop: "{{ _nginx_vhosts_all }}"
       delegate_to: "{{ item.host }}"
 
     - name: nginx (server) | Create conf include dir
       file:
         path: "{{ item.conf_include_d }}"
         state: directory
-      loop: "{{ _nginx_conf_all }}"
+      when: item.conf_include_d is defined
+      loop: "{{ _nginx_vhosts_all }}"
       delegate_to: "{{ item.host }}"
 
     - name: nginx (server) | Create nginx vhost config
       template:
-        src: "{{ item.tmpl }}"
+        src: 'vhost.conf'
         force: yes
         backup: yes
         dest: "{{ item.dest }}"
-      loop: "{{ _nginx_conf_all }}"
+      loop: "{{ _nginx_vhosts_all }}"
       delegate_to: "{{ item.host }}"
       notify:
         - restart nginx
@@ -39,7 +49,7 @@
       file:
         path: "{{ item.cert | dirname }}"
         state: directory
-      loop: "{{ _nginx_conf_all }}"
+      loop: "{{ _nginx_vhosts_all }}"
       delegate_to: "{{ item.host }}"
 
     - name: nginx (server) | Create directory for certificate private keys
@@ -51,21 +61,21 @@
               else 755
           }}
         state: directory
-      loop: "{{ _nginx_conf_all }}"
+      loop: "{{ _nginx_vhosts_all }}"
       delegate_to: "{{ item.host }}"
 
     - name: nginx (server) | Stat certificates
       stat:
         path: "{{ item.cert }}"
       register: nginx_cert_stats
-      loop: "{{ _nginx_conf_all }}"
+      loop: "{{ _nginx_vhosts_all }}"
       delegate_to: "{{ item.host }}"
 
     - name: nginx (server) | Stat certificate private keys
       stat:
         path: "{{ item.privkey }}"
       register: nginx_privkey_stats
-      loop: "{{ _nginx_conf_all }}"
+      loop: "{{ _nginx_vhosts_all }}"
       delegate_to: "{{ item.host }}"
 
     - name: nginx (server) | Enable vhost
@@ -75,7 +85,7 @@
         state: link
       when: item.1.stat.exists and item.2.stat.exists
       loop: >-
-        {{ _nginx_conf_all
+        {{ _nginx_vhosts_all
             | zip(nginx_cert_stats.results, nginx_privkey_stats.results) | list
         }}
       delegate_to: "{{ item.0.host }}"
@@ -87,7 +97,15 @@
       package:
         name: 'python-passlib'
         state: present
-      loop: "{{ _nginx_host_conf }}"
+      loop: "{{ _nginx_host_shares }}"
+      delegate_to: "{{ item.server }}"
+
+    - name: nginx (server) | Create host's share root dir
+      file:
+        path: "{{ item.root }}"
+        state: directory
+      when: item.root is defined
+      loop: "{{ _nginx_host_shares }}"
       delegate_to: "{{ item.server }}"
 
     - name: nginx (server) | Add host user to htpasswd
@@ -97,19 +115,46 @@
         password: "{{ item.pw }}"
         create: yes
         state: present
-      loop: "{{ _nginx_host_conf }}"
+      loop: "{{ _nginx_host_shares }}"
       delegate_to: "{{ item.server }}"
       notify:
         - restart nginx
 
-    - name: nginx (server) | Create host's share config
+    - name: nginx (server) | Create share config
       template:
-        src: "{{ item.tmpl }}"
+        src: 'share.conf'
         force: yes
         backup: yes
         dest: "{{ item.dest }}"
-      loop: "{{ _nginx_host_conf }}"
+      loop: "{{ _nginx_host_shares }}"
       delegate_to: "{{ item.server }}"
       notify:
         - restart nginx
+
+    - name: nginx (server) | Create default 403 location
+      template:
+        src: 'share_default.conf'
+        force: yes
+        backup: yes
+        dest: "{{ item.default_dest }}"
+      loop: "{{ _nginx_host_shares }}"
+      delegate_to: "{{ item.server }}"
+      notify:
+        - restart nginx
+
+  when: _nginx_host_shares != []
+
+- block:
+    - name: nginx (server) | Create rproxy config
+      template:
+        src: 'rproxy.conf'
+        force: yes
+        backup: yes
+        dest: "{{ item.dest }}"
+      loop: "{{ _nginx_host_rproxy }}"
+      delegate_to: "{{ item.server }}"
+      notify:
+        - restart nginx
+
+  when: _nginx_host_rproxy != []
 

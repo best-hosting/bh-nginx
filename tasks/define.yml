@@ -1,52 +1,66 @@
 ---
 
 - block:
-    - name: define (server) | Define nginx shares global configs
+    - name: define | Add all vhosts, if run on server
       set_fact:
-        _nginx_conf: >-
-          {{ hostvars[item_host]._nginx_conf | default([])
-              + [ share | combine(
-                      { 'host'        : item_host
-                      , 'name'        : item_name
-                      , 'server_name' : share.server_name | default([])
-                      , 'root'        : share.root | default(nginx_root + '/' + item_name)
-                      , 'access_log'  : item_access_log
-                      , 'error_log'   : item_error_log
-                      , 'cert'        : item_cert
-                      , 'privkey'     : share.privkey | default(nginx_privkey)
-                      , 'conf_include_d': item_dest + '.d'
-                      , 'tmpl'        : 'share_vhost.conf'
-                      , 'dest'        : item_dest
-                      , 'link_to'     : item_link_to
-                      }
-                    )
+        _nginx_run_vhosts: >-
+          {{ (_nginx_run_vhosts + [{ 'vhost' : item, 'server' : inventory_hostname }])
+                | unique
+          }}
+      when: nginx_vhosts is defined
+      loop: "{{ nginx_vhosts.keys() }}"
+
+    - name: define | Show list of vhosts to configure
+      debug:
+        var: _nginx_run_vhosts
+
+- block:
+    - name: define | Define nginx vhost server configs
+      set_fact:
+        _nginx_vhosts_all: >-
+          {{ _nginx_vhosts_all
+              + [ { 'server_name' : []
+                  , 'root' : item_root
+                  , 'access_log'  : item_access_log
+                  , 'error_log'   : item_error_log
+                  } | combine(vhost,
+                        { 'host'        : item_host
+                        , 'name'        : item_name
+                        , 'listen'      : item_listen
+                        , 'cert'        : item_cert
+                        , 'privkey'     : item_privkey
+                        , 'conf_include_d': item_dest + '.d'
+                        , 'dest'        : item_dest
+                        , 'link_to'     : item_link_to
+                        }
+                      )
                 ]
           }}
       vars:
         item_host: >-
           {{ item.server }}
         item_name: >-
-          {{ item.share }}
-        share: >-
-          {{ hostvars[item_host].nginx_shares[item_name] }}
+          {{ item.vhost }}
+        vhost: >-
+          {{ hostvars[item_host].nginx_vhosts[item_name] }}
+        item_root: >-
+          {{ hostvars[item_host].nginx_root | default('/var/www') + '/' + item_name }}
         item_access_log: >-
-          {{ share.access_log | default(
-                hostvars[item_host].nginx_log_dir + '/' + item_name + '-access.log'
-                  if hostvars[item_host].nginx_log_dir is defined
-                  else ''
-              )
+          {{ hostvars[item_host].nginx_log_dir + '/' + item_name + '-access.log'
+              if hostvars[item_host].nginx_log_dir is defined
+              else ''
           }}
         item_error_log: >-
-          {{ share.error_log | default(
-                hostvars[item_host].nginx_log_dir + '/' + item_name + '-error.log'
-                  if hostvars[item_host].nginx_log_dir is defined
-                  else ''
-              )
+          {{ hostvars[item_host].nginx_log_dir + '/' + item_name + '-error.log'
+              if hostvars[item_host].nginx_log_dir is defined
+              else ''
           }}
+        item_listen: >-
+          {{ item.listen | ipaddr('address') if item.listen is defined else '' }}
         item_cert: >-
-          {{ share.cert | default(hostvars[item_host].nginx_cert) }}
+          {{ vhost.cert | default(hostvars[item_host].nginx_cert) }}
         item_privkey: >-
-          {{ share.privkey | default(hostvars[item_host].nginx_privkey) }}
+          {{ vhost.privkey | default(hostvars[item_host].nginx_privkey) }}
         item_dest: >-
           {{ hostvars[item_host].nginx_conf_dir | default('/etc/nginx')
               + '/sites-available/' + item_name
@@ -55,18 +69,16 @@
           {{ hostvars[item_host].nginx_conf_dir | default('/etc/nginx')
               + '/sites-enabled/' + item_name
           }}
-      loop: "{{ nginx_host_shares }}"
-      delegate_facts: true
-      delegate_to: "{{ item.server }}"
+      loop: "{{ _nginx_run_vhosts }}"
 
-    - name: define | Define nginx shares host config
+    - name: define | Define nginx share host configs
       set_fact:
-        _nginx_host_conf: >-
-          {{  _nginx_host_conf
+        _nginx_host_shares: >-
+          {{  _nginx_host_shares
                 + [ item | combine(
                       { 'name'  : item_name
-                      , 'tmpl'  : 'share.conf'
                       , 'dest'  :   item_conf_include_d + '/' + item_name + '.conf'
+                      , 'default_dest'  :   item_conf_include_d + '/default.conf'
                       , 'htpasswd': item_conf_include_d + '/' + item_name + '.htpasswd'
                       , 'root'  : item_root
                       , 'pw' : lookup('file',
@@ -82,8 +94,8 @@
           }}
       vars:
         item_vhost_conf: >-
-          {{ hostvars[item.server]._nginx_conf
-              | selectattr('name', 'equalto', item.share)
+          {{ _nginx_vhosts_all
+              | selectattr('name', 'equalto', item.vhost)
               | first
           }}
         item_name: >-
@@ -94,22 +106,41 @@
           {{ item_vhost_conf.root + '/' + item_name }}
       loop: "{{ nginx_host_shares }}"
 
-    - name: define | Show nginx global configs
-      debug:
-        var: hostvars[item.server]._nginx_conf
-      loop: "{{ nginx_host_shares }}"
-
-    - name: define | Show nginx host config
-      debug:
-        var: _nginx_host_conf
-
-    - name: define | Gather all nginx global configs into single list
+    - name: define | Define nginx rproxy host configs
       set_fact:
-        _nginx_conf_all: >-
-          {{ _nginx_conf_all + hostvars[item]._nginx_conf }}
-      loop: "{{ _nginx_servers }}"
+        _nginx_host_rproxy: >-
+          {{  _nginx_host_rproxy
+                + [ item | combine(
+                      { 'name'  : item_name
+                      , 'dest'  : item_conf_include_d + '/' + item_name + '.conf'
+                      }
+                    )
+                  ]
+          }}
+      vars:
+        item_vhost_conf: >-
+          {{ _nginx_vhosts_all
+              | selectattr('name', 'equalto', item.vhost)
+              | first
+          }}
+        item_name: >-
+          {{ inventory_hostname }}
+        item_conf_include_d: >-
+          {{ item_vhost_conf.conf_include_d }}
+        item_root: >-
+          {{ item_vhost_conf.root + '/' + item_name }}
+      loop: "{{ nginx_host_rproxy }}"
 
-    - name: define | Show all nginx global configs
+- block:
+    - name: define | Show all nginx vhost configs
       debug:
-        var: _nginx_conf_all
+        var: _nginx_vhosts_all
+
+    - name: define | Show nginx host share configs
+      debug:
+        var: _nginx_host_shares
+
+    - name: define | Show nginx host rproxy configs
+      debug:
+        var: _nginx_host_rproxy
 

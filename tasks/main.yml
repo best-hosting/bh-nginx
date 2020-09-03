@@ -5,7 +5,11 @@
     - name: define | Find all share servers
       set_fact:
         _nginx_servers: >-
-          {{ nginx_host_shares | map(attribute='server') | unique | list }}
+          {{ (nginx_host_shares + nginx_host_rproxy)
+                | map(attribute='server')
+                | unique
+                | list
+          }}
 
     - name: Gather facts about nginx servers
       setup:
