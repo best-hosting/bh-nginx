@@ -1,5 +1,4 @@
 ---
-# tasks file for bh-nginx
 
 - block:
     - name: define | Find all share servers
@@ -20,16 +19,27 @@
   tags:
     - always
     - nginx_define
+    - nginx_shares
+    - nginx_rproxy
 
 - name: Define variables
   import_tasks: define.yml
   tags:
     - always
-    - letsencrypt_install
     - nginx_define
+    - nginx_shares
+    - nginx_rproxy
 
 - name: Configure nginx
   import_tasks: nginx.yml
+
+- name: Configure nginx shares
+  import_tasks: share.yml
   tags:
-    - 'letsencrypt_install'
+    - nginx_shares
+
+- name: Configure nginx rproxy
+  import_tasks: rproxy.yml
+  tags:
+    - nginx_rproxy
 

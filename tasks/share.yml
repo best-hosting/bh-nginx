@@ -1,0 +1,73 @@
+---
+
+- block:
+    - name: share (server) | Search for rproxy configs in share vhosts
+      find:
+        paths: "{{ item.conf_include_d }}"
+        patterns: '^rproxy(-.*)?\.conf$'
+        use_regex: yes
+      register: rproxy_in_share_conf_files
+      loop: "{{ _nginx_host_shares }}"
+      delegate_to: "{{ item.server }}"
+
+    - name: share (server) | Remove rproxy configs from share vhosts
+      file:
+        path: "{{ item.1.path }}"
+        state: absent
+      loop: "{{ rproxy_in_share_conf_files.results | subelements('files') }}"
+      delegate_to: "{{ item.0.item.server }}"
+      notify:
+        - restart nginx
+
+    - name: share (server) | Install python passlib
+      package:
+        name: 'python-passlib'
+        state: present
+      loop: "{{ _nginx_host_shares }}"
+      delegate_to: "{{ item.server }}"
+
+    - name: share (server) | Create host's share root dir
+      file:
+        path: "{{ item.root }}"
+        state: directory
+      when: item.root is defined
+      loop: "{{ _nginx_host_shares }}"
+      delegate_to: "{{ item.server }}"
+
+    - name: share (server) | Add host user to htpasswd
+      htpasswd:
+        path: "{{ item.htpasswd }}"
+        name: "{{ item.name }}"
+        password: "{{ item.pw }}"
+        create: yes
+        state: present
+      loop: "{{ _nginx_host_shares }}"
+      delegate_to: "{{ item.server }}"
+      notify:
+        - restart nginx
+
+    - name: share (server) | Create share config
+      template:
+        src: 'share.conf'
+        force: yes
+        backup: yes
+        dest: "{{ item.dest }}"
+      loop: "{{ _nginx_host_shares }}"
+      delegate_to: "{{ item.server }}"
+      notify:
+        - restart nginx
+
+    - name: share (server) | Create default 403 location
+      template:
+        src: 'share_default.conf'
+        force: yes
+        backup: yes
+        dest: "{{ item.default_dest }}"
+      loop: "{{ _nginx_host_shares }}"
+      delegate_to: "{{ item.server }}"
+      notify:
+        - restart nginx
+
+  tags:
+    - nginx_shares
+

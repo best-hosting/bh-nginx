@@ -1,0 +1,35 @@
+---
+
+- block:
+    - name: rproxy (server) | Search for share configs in rproxy vhosts
+      find:
+        paths: "{{ item.conf_include_d }}"
+        patterns: '^share(-.*)?\.conf$'
+        use_regex: true
+      register: share_in_rproxy_conf_files
+      loop: "{{ _nginx_host_rproxy }}"
+      delegate_to: "{{ item.server }}"
+
+    - name: rproxy (server) | Remove share configs from rproxy vhosts
+      file:
+        path: "{{ item.1.path }}"
+        state: absent
+      loop: "{{ share_in_rproxy_conf_files.results | subelements('files') }}"
+      delegate_to: "{{ item.0.item.server }}"
+      notify:
+        - restart nginx
+
+    - name: rproxy (server) | Create rproxy config
+      template:
+        src: 'rproxy.conf'
+        force: yes
+        backup: yes
+        dest: "{{ item.dest }}"
+      loop: "{{ _nginx_host_rproxy }}"
+      delegate_to: "{{ item.server }}"
+      notify:
+        - restart nginx
+
+  tags:
+    - nginx_rproxy
+

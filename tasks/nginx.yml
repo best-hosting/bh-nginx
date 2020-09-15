@@ -8,7 +8,6 @@
       loop: "{{ _nginx_servers }}"
       delegate_to: "{{ item }}"
 
-- block:
     - name: nginx (server) | Create root dir
       file:
         path: "{{ item.root }}"
@@ -91,70 +90,4 @@
       delegate_to: "{{ item.0.host }}"
       notify:
         - restart nginx
-
-- block:
-    - name: nginx (server) | Install python passlib
-      package:
-        name: 'python-passlib'
-        state: present
-      loop: "{{ _nginx_host_shares }}"
-      delegate_to: "{{ item.server }}"
-
-    - name: nginx (server) | Create host's share root dir
-      file:
-        path: "{{ item.root }}"
-        state: directory
-      when: item.root is defined
-      loop: "{{ _nginx_host_shares }}"
-      delegate_to: "{{ item.server }}"
-
-    - name: nginx (server) | Add host user to htpasswd
-      htpasswd:
-        path: "{{ item.htpasswd }}"
-        name: "{{ item.name }}"
-        password: "{{ item.pw }}"
-        create: yes
-        state: present
-      loop: "{{ _nginx_host_shares }}"
-      delegate_to: "{{ item.server }}"
-      notify:
-        - restart nginx
-
-    - name: nginx (server) | Create share config
-      template:
-        src: 'share.conf'
-        force: yes
-        backup: yes
-        dest: "{{ item.dest }}"
-      loop: "{{ _nginx_host_shares }}"
-      delegate_to: "{{ item.server }}"
-      notify:
-        - restart nginx
-
-    - name: nginx (server) | Create default 403 location
-      template:
-        src: 'share_default.conf'
-        force: yes
-        backup: yes
-        dest: "{{ item.default_dest }}"
-      loop: "{{ _nginx_host_shares }}"
-      delegate_to: "{{ item.server }}"
-      notify:
-        - restart nginx
-
-  when: _nginx_host_shares != []
-
-- block:
-    - name: nginx (server) | Create rproxy config
-      template:
-        src: 'rproxy.conf'
-        force: yes
-        backup: yes
-        dest: "{{ item.dest }}"
-      loop: "{{ _nginx_host_rproxy }}"
-      delegate_to: "{{ item.server }}"
-      notify:
-        - restart nginx
-
-  when: _nginx_host_rproxy != []
 

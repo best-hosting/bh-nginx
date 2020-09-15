@@ -77,8 +77,9 @@
           {{  _nginx_host_shares
                 + [ item | combine(
                       { 'name'  : item_name
-                      , 'dest'  :   item_conf_include_d + '/' + item_name + '.conf'
-                      , 'default_dest'  :   item_conf_include_d + '/default.conf'
+                      , 'conf_include_d' : item_conf_include_d
+                      , 'dest'  :   item_conf_include_d + '/share-' + item_name + '.conf'
+                      , 'default_dest'  :   item_conf_include_d + '/share-default.conf'
                       , 'htpasswd': item_conf_include_d + '/' + item_name + '.htpasswd'
                       , 'root'  : item_root
                       , 'pw' : lookup('file',
@@ -112,7 +113,8 @@
           {{  _nginx_host_rproxy
                 + [ item | combine(
                       { 'name'  : item_name
-                      , 'dest'  : item_conf_include_d + '/' + item_name + '.conf'
+                      , 'conf_include_d' : item_conf_include_d
+                      , 'dest'  : item_conf_include_d + '/rproxy-' + item_name + '.conf'
                       }
                     )
                   ]
