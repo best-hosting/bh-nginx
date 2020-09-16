@@ -1,23 +1,73 @@
 ---
-# Should be defined, if access and error logs are needed.
-#nginx_log_dir: '/var/log/nginx'
-nginx_conf_dir: '/etc/nginx'
 
-# Dictionary of definition of share vhost on nginx server.
-# - 'server_name' - list of vhost names. Required.
-# - 'cert' - certificate file. Required.
-# - 'privkey' - certificate private keyfile. Required.
-# Dict element name is share name, which may be used in 'nginx_host_shares'.
+# Path to nginx config directory. Default: '/etc/nginx'
+#nginx_conf_dir: '/etc/nginx'
+# Path to nginx log dir. Used to construct default value for 'access_log' and
+# 'error_log' values of 'nginx_vhosts' dictionary.
+#nginx_log_dir: '/var/log/nginx'
+
+# Dictionary with definitions of (share or rproxy) vhosts on nginx _server_
+# (i.e. this dictionary is defined for host, where nginx runs).
+#
+# Dictionary key is vhost name (NAME below), which will be used as id in
+# various places and should be used in 'nginx_host_shares' and
+# 'nginx_host_rproxy' (as value for 'vhost' key) to reference this vhost.
+#
+# Dictionary values are;
+# - 'server_name' - list of vhost names.
+# - 'listen' - IP address, where to listen. Port will always be 443 and ssl
+# enabled.
+# - 'cert' - certificate file. Required, because all created vhosts work only
+# on port 443.
+# - 'privkey' - certificate private keyfile. Required, because all created
+# vhosts work only on port 443.
+# - 'root' - vhost root directory (default: '/var/www/NAME').
+# - 'access_log' - path to access log (if 'nginx_log_dir' global variable is
+# defined, 'nginx_log_dir/NAME-access.log' will be used, if not - access log
+# is disabled).
+# - 'error_log' - path to error log (default: the same as for 'access_log'
+# above).
+# - 'split_conf' - whether to install nginx config file for each host to
+# separate file (included in vhost config) or generate single config file.
+# For now single config effectively means only _one_ host can use this vhost
+# at a time. If other vhost also declares this vhost in 'nginx_host_rproxy' or
+# 'nginx_host_shares', single config file will be _overwritten_. Default:
+# shares and rproxies has _different_ default for this value. By default
+# shares _use_ split config (i.e. many hosts may use single share), but
+# rproxies do _not_ use split config (i.e. only one host may use vhost as
+# rproxy).
+#
+# Note also, that nginx fails to start if the same location is defined twice.
+# Thus, it's not recommended to use 'split_conf' mode for rproxy. And, if
+# used, ansible won't check for duplicates.
+#
+# Note, that 'split_conf' setting is defined for vhost, not in individual
+# 'nginx_host_shares' or 'nginx_host_rproxy', because 'nginx_host_X' lists
+# defined for different hosts and referencing the same vhost are not allowed
+# specify different values: the vhost is single and it can either use split
+# config or not.
 nginx_vhosts: {}
 
-# List of definitions of shares used by host.
-# - 'vhost' - share name (dict name in 'nginx_shares'). Required.
-# - 'server' - server, where this share is defined. Requird.
+# List with definitions (dict) of shares used by host (this list is defined on
+# host, which _uses_ share on some other nginx server).
+#
+# Element dictionary values are:
+# - 'vhost' - vhost name ('nginx_vhosts' key) from 'nginx_vhosts' of
+# corresponding server. Required.
+# - 'server' - inventory hostname of server, where this vhost is defined.
+# Required.
 nginx_host_shares: []
 
-# Nginx reverse proxy definitions.
-# - 'locations' - list of locations with proxy_pass.
-# - 'rproxy_split_conf' - whether to install rproxy location configs to single
-# file or to many files named after inventory hostname. Note, that nginx fails
-# to start with duplicate locations and ansible does not check this.
+# List with definitions (dict) of rproxies used by host (this list is defined
+# on host, which _uses_ some other nginx server as reverse proxy).
+#
+# Element dictionary values are:
+# - 'vhost' - vhost name ('nginx_vhosts' key) from 'nginx_vhosts' of
+# corresponding server. Required.
+# - 'server' - inventory hostname of server, where this vhost is defined.
+# Required.
+# - 'locations' - list of locations (dict) defining location and proxied
+# server. Required, but may be empty. Location dictionary values are:
+#   - 'name' - location. Required.
+#   - 'proxy_pass' - url of proxied server. Required.
 nginx_host_rproxy: []

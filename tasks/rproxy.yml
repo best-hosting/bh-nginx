@@ -56,6 +56,3 @@
       notify:
         - restart nginx
 
-  tags:
-    - nginx_rproxy
-

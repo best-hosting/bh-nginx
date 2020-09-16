@@ -1,13 +1,14 @@
 ---
-# vars file for bh-nginx
 
 # All vhost configs from all used nginx servers into single list.
 _nginx_vhosts_all: []
-# Current host specific config part.
+# Internal 'nginx_host_shares' list.
 _nginx_host_shares: []
+# Internal 'nginx_host_rproxy' list.
 _nginx_host_rproxy: []
 
+# List of vhosts (on any servers), used by the current host.
 _nginx_run_vhosts: "{{ nginx_host_shares + nginx_host_rproxy }}"
 
-# All nginx servers, which uses current host.
+# All nginx servers, used by the current host.
 _nginx_servers: []

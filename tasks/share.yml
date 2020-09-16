@@ -94,6 +94,3 @@
       notify:
         - restart nginx
 
-  tags:
-    - nginx_shares
-

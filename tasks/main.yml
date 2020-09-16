@@ -1,7 +1,7 @@
 ---
 
 - block:
-    - name: define | Find all share servers
+    - name: define | Find all nginx servers
       set_fact:
         _nginx_servers: >-
           {{ (nginx_host_shares + nginx_host_rproxy)
