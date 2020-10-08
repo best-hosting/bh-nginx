@@ -156,3 +156,201 @@
       debug:
         var: _nginx_host_rproxy
 
+- block:
+    - name: define | Stat shares cache file
+      stat:
+        path: "{{ _nginx_shares_cache_file }}"
+      register: _nginx_shares_cache_file_stats
+
+    - name: define | Stat rproxy cache file
+      stat:
+        path: "{{ _nginx_rproxy_cache_file }}"
+      register: _nginx_rproxy_cache_file_stats
+
+  run_once: true
+  delegate_to: localhost
+
+- block:
+    - name: define | Load shares cache
+      include_vars:
+        file: "{{ _nginx_shares_cache_file }}"
+        name: _nginx_shares_cache_r
+      when: _nginx_shares_cache_file_stats.stat.exists
+
+    - name: define | Load rproxy cache
+      include_vars:
+        file: "{{ _nginx_rproxy_cache_file }}"
+        name: _nginx_rproxy_cache_r
+      when: _nginx_rproxy_cache_file_stats.stat.exists
+
+    - name: define | Loaded shares cache
+      debug:
+        var: _nginx_shares_cache_r
+
+    - name: define | Loaded rproxy cache
+      debug:
+        var: _nginx_rproxy_cache_r
+
+  run_once: true
+
+- block:
+    # FIXME: Here 'combine()''s 'list_merge' strategy implemented manually.
+    # Raise ansible version to make most part of this boilerplate redundant.
+    - name: define | Build shares cache for playbook hosts
+      set_fact:
+        _nginx_shares_all: >-
+          {{ _nginx_shares_all | combine(
+                { item.1.vhost :
+                  { 'vhost'       : item.1.vhost
+                  , 'servers'     : ([item.1.server] + value_servers + cached_servers) | unique
+                  , item.1.server : ([item_name]     + value_server  + cached_server)  | unique
+                  }
+                }
+              )
+          }}
+      vars:
+        item_name: >-
+          {{ item.0.inventory_hostname }}
+        cached_vhost: >-
+          {{ _nginx_shares_cache_r[item.1.vhost]
+              if _nginx_shares_cache_r[item.1.vhost] is defined
+                else {}
+          }}
+        cached_server: >-
+          {{ cached_vhost[item.1.server] if cached_vhost[item.1.server] is defined else [] }}
+        cached_servers: >-
+          {{ cached_vhost['servers'] if cached_vhost['servers'] is defined else [] }}
+        value_vhost: >-
+          {{ _nginx_shares_all[item.1.vhost]
+              if _nginx_shares_all[item.1.vhost] is defined
+                else {}
+          }}
+        value_server: >-
+          {{ value_vhost[item.1.server] if value_vhost[item.1.server] is defined else [] }}
+        value_servers: >-
+          {{ value_vhost['servers'] if value_vhost['servers'] is defined else [] }}
+      loop: >-
+        {{ hostvars.values() | subelements('_nginx_host_shares', skip_missing=True) }}
+
+    - name: define | Build rproxy cache for playbook hosts
+      set_fact:
+        _nginx_rproxy_all: >-
+          {{ _nginx_rproxy_all | combine(
+                { item.1.vhost :
+                  { 'vhost'       : item.1.vhost
+                  , 'servers'     : ([item.1.server] + value_servers + cached_servers) | unique
+                  , item.1.server : ([item_name]     + value_server  + cached_server)  | unique
+                  }
+                }
+              )
+          }}
+      vars:
+        item_name: >-
+          {{ item.0.inventory_hostname }}
+        cached_vhost: >-
+          {{ _nginx_rproxy_cache_r[item.1.vhost]
+              if _nginx_rproxy_cache_r[item.1.vhost] is defined
+                else {}
+          }}
+        cached_server: >-
+          {{ cached_vhost[item.1.server] if cached_vhost[item.1.server] is defined else [] }}
+        cached_servers: >-
+          {{ cached_vhost['servers'] if cached_vhost['servers'] is defined else [] }}
+        value_vhost: >-
+          {{ _nginx_rproxy_all[item.1.vhost]
+              if _nginx_rproxy_all[item.1.vhost] is defined
+                else {}
+          }}
+        value_server: >-
+          {{ value_vhost[item.1.server] if value_vhost[item.1.server] is defined else [] }}
+        value_servers: >-
+          {{ value_vhost['servers'] if value_vhost['servers'] is defined else [] }}
+      loop: >-
+        {{ hostvars.values() | subelements('_nginx_host_rproxy', skip_missing=True) }}
+
+    - name: define | Show shares cache
+      debug:
+        var: _nginx_shares_all
+
+    - name: define | Show rproxy cache
+      debug:
+        var: _nginx_rproxy_all
+
+  run_once: true
+
+- block:
+    - name: define | Update shares cache
+      set_fact:
+        _nginx_shares_cache: >-
+          {{ _nginx_shares_cache_r | combine(_nginx_shares_all) }}
+
+    - name: define | Update rproxy cache
+      set_fact:
+        _nginx_rproxy_cache: >-
+          {{ _nginx_rproxy_cache_r | combine(_nginx_rproxy_all) }}
+
+    - name: define | Save shares cache
+      copy:
+        content: "{{ _nginx_shares_cache | to_yaml }}"
+        dest: "{{ _nginx_shares_cache_file }}"
+
+    - name: define | Save rproxy cache
+      copy:
+        content: "{{ _nginx_rproxy_cache | to_yaml }}"
+        dest: "{{ _nginx_rproxy_cache_file }}"
+
+  delegate_to: localhost
+  run_once: true
+
+- block:
+    - name: define | Check for vhosts used for both share and rproxy
+      assert:
+        that:
+          - not same_vhosts
+        fail_msg: >-
+          {{ "The same vhost name can't be used for both share and rproxy."
+                + " Now the same vhosts are: " + same_vhosts | join(',')
+          }}
+      # ' - fix vim highlightning.
+      vars:
+        same_vhosts: >-
+          {{ _nginx_shares_cache.keys() | intersect(_nginx_rproxy_cache.keys()) }}
+      run_once: true
+
+    - name: define | Check for several hosts using shares in single conf mode
+      assert:
+        that:
+          - vhost_used_by | length == 1
+        fail_msg: >-
+          {{ "Vhost '" + item.vhost + "' in single conf mode used by several hosts: "
+                + vhost_used_by | join(',') + "."
+          }}
+      # ' - fix vim highlightning.
+      when: not item.split_conf
+      vars:
+        vhost_used_by: >-
+          {{ _nginx_shares_cache[item.vhost][item.server] }}
+      loop: >-
+        {{ _nginx_host_shares }}
+
+    - name: define | Check for several hosts using rproxy in single conf mode
+      assert:
+        that:
+          - vhost_used_by | length == 1
+        fail_msg: >-
+          {{ "Rproxy vhost '" + item.vhost + "' in single conf mode used by several hosts: "
+                + vhost_used_by | join(',') + "."
+          }}
+      # ' - fix vim highlightning.
+      when: not item.split_conf
+      vars:
+        vhost_used_by: >-
+          {{ _nginx_rproxy_cache[item.vhost][item.server] }}
+      loop: >-
+        {{ _nginx_host_rproxy }}
+
+- name:
+  assert:
+    that:
+      - 1 == 2
+

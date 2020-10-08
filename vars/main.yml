@@ -12,3 +12,18 @@ _nginx_run_vhosts: "{{ nginx_host_shares + nginx_host_rproxy }}"
 
 # All nginx servers, used by the current host.
 _nginx_servers: []
+
+# Shares and rproxy cache files.
+_nginx_shares_cache_file: "{{ playbook_dir + '/nginx_shares_cache.yml' }}"
+_nginx_rproxy_cache_file: "{{ playbook_dir + '/nginx_rproxy_cache.yml' }}"
+# Variables _read_ from cache file.
+_nginx_shares_cache_r: {}
+_nginx_rproxy_cache_r: {}
+# Variables _calculated_ during current play.
+_nginx_shares_all: {}
+_nginx_rproxy_all: {}
+# Merged values read from cache with values caclculated from current play.
+# This will be saved in cache for later use.
+_nginx_shares_cache: {}
+_nginx_rproxy_cache: {}
+
