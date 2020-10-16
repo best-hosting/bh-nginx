@@ -27,6 +27,15 @@
   tags:
     - always
     - nginx_define
+    - nginx_cache
+    - nginx_shares
+    - nginx_rproxy
+
+- name: Define variables
+  import_tasks: cache.yml
+  tags:
+    - nginx_define
+    - nginx_cache
     - nginx_shares
     - nginx_rproxy
 
