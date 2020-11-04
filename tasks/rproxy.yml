@@ -19,6 +19,32 @@
       notify:
         - restart nginx
 
+- block:
+    - name: rproxy (server) | Search for rproxy configs
+      find:
+        paths: "{{ item.conf_include_d }}"
+        patterns: '^rproxy(-.*)?\.conf$'
+        use_regex: true
+      register: rproxy_conf_files
+      loop: "{{ _nginx_host_rproxy }}"
+      delegate_to: "{{ item.server }}"
+
+    - name: rproxy (server) | Remove rproxy split or single file config files
+      file:
+        path: "{{ item.1.path }}"
+        state: absent
+      vars:
+        item_is_split_conf: >-
+          {{ item.1.path | basename != 'rproxy.conf' }}
+      when: >-
+        (       item.0.item.split_conf and not item_is_split_conf
+         or not item.0.item.split_conf and     item_is_split_conf)
+      loop: "{{ rproxy_conf_files.results | subelements('files') }}"
+      delegate_to: "{{ item.0.item.server }}"
+      notify:
+        - restart nginx
+
+- block:
     - name: rproxy (server) | Create rproxy config
       template:
         src: 'rproxy.conf'

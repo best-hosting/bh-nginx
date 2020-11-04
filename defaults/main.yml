@@ -11,9 +11,13 @@ nginx_conf_dir: '/etc/nginx'
 nginx_vhosts: {}
 
 # List of definitions of shares used by host.
-# - 'share' - share name (dict name in 'nginx_shares'). Required.
+# - 'vhost' - share name (dict name in 'nginx_shares'). Required.
 # - 'server' - server, where this share is defined. Requird.
 nginx_host_shares: []
 
 # Nginx reverse proxy definitions.
+# - 'locations' - list of locations with proxy_pass.
+# - 'rproxy_split_conf' - whether to install rproxy location configs to single
+# file or to many files named after inventory hostname. Note, that nginx fails
+# to start with duplicate locations and ansible does not check this.
 nginx_host_rproxy: []

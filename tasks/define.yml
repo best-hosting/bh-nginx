@@ -31,6 +31,8 @@
                         , 'privkey'     : item_privkey
                         , 'conf_include_d': item_dest + '.d'
                         , 'dest'        : item_dest
+                        , 'rproxy_split_conf': vhost.split_conf | default(false)
+                        , 'share_split_conf' : vhost.split_conf | default(true)
                         , 'link_to'     : item_link_to
                         }
                       )
@@ -78,10 +80,15 @@
                 + [ item | combine(
                       { 'name'  : item_name
                       , 'conf_include_d' : item_conf_include_d
-                      , 'dest'  :   item_conf_include_d + '/share-' + item_name + '.conf'
+                      , 'dest'  : item_conf_include_d
+                                    + ( '/share-' + item_name + '.conf'
+                                        if item_vhost_conf.share_split_conf
+                                          else '/share.conf'
+                                      )
                       , 'default_dest'  :   item_conf_include_d + '/share-default.conf'
                       , 'htpasswd': item_conf_include_d + '/' + item_name + '.htpasswd'
                       , 'root'  : item_root
+                      , 'split_conf' : item_vhost_conf.share_split_conf
                       , 'pw' : lookup('file',
                                     lookup('first_found',
                                       [ 'htpasswords/' + inventory_hostname + '/' + item_name
@@ -114,7 +121,12 @@
                 + [ item | combine(
                       { 'name'  : item_name
                       , 'conf_include_d' : item_conf_include_d
-                      , 'dest'  : item_conf_include_d + '/rproxy-' + item_name + '.conf'
+                      , 'dest'  : item_conf_include_d
+                                    + ( '/rproxy-' + item_name + '.conf'
+                                        if item_vhost_conf.rproxy_split_conf
+                                          else '/rproxy.conf'
+                                      )
+                      , 'split_conf' : item_vhost_conf.rproxy_split_conf
                       }
                     )
                   ]
@@ -129,8 +141,6 @@
           {{ inventory_hostname }}
         item_conf_include_d: >-
           {{ item_vhost_conf.conf_include_d }}
-        item_root: >-
-          {{ item_vhost_conf.root + '/' + item_name }}
       loop: "{{ nginx_host_rproxy }}"
 
 - block:
