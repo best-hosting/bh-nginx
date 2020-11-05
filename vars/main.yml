@@ -17,8 +17,8 @@ _nginx_servers: []
 groups_yaml: {}
 
 # Shares and rproxy cache files.
-_nginx_shares_cache_file: "{{ playbook_dir + '/nginx_shares_cache.yml' }}"
-_nginx_rproxy_cache_file: "{{ playbook_dir + '/nginx_rproxy_cache.yml' }}"
+_nginx_shares_cache_file: "{{ cache_dir + '/nginx_shares.yml' }}"
+_nginx_rproxy_cache_file: "{{ cache_dir + '/nginx_rproxy.yml' }}"
 # Variables _read_ from cache file.
 _nginx_shares_cache_r: {}
 _nginx_rproxy_cache_r: {}

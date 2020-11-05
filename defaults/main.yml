@@ -74,3 +74,6 @@ nginx_host_rproxy: []
 
 # File where to save dynamic groups.
 nginx_group_file: "{{ inventory_dir + '/nginx_groups.yml' }}"
+
+# Directory, where to save dynamic groups and cached variables.
+cache_dir: "{{ inventory_dir + '_cache' }}"

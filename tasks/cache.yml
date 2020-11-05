@@ -2,6 +2,11 @@
 
 - block:
     - name: cache | Ensure cache directory exists
+      file:
+        path: "{{ cache_dir }}"
+        state: directory
+
+    - name: cache | Stat shares cache
       stat:
         path: "{{ _nginx_shares_cache_file }}"
       register: _nginx_shares_cache_file_stats
@@ -117,9 +122,6 @@
       debug:
         var: _nginx_rproxy_all
 
-  run_once: true
-
-- block:
     - name: cache | Update shares cache
       set_fact:
         _nginx_shares_cache: >-
@@ -130,17 +132,6 @@
         _nginx_rproxy_cache: >-
           {{ _nginx_rproxy_cache_r | combine(_nginx_rproxy_all) }}
 
-    - name: define | Save shares cache
-      copy:
-        content: "{{ _nginx_shares_cache | to_yaml }}"
-        dest: "{{ _nginx_shares_cache_file }}"
-
-    - name: define | Save rproxy cache
-      copy:
-        content: "{{ _nginx_rproxy_cache | to_yaml }}"
-        dest: "{{ _nginx_rproxy_cache_file }}"
-
-  delegate_to: localhost
   run_once: true
 
 - block:
@@ -189,6 +180,20 @@
           {{ _nginx_rproxy_cache[item.vhost][item.server] }}
       loop: >-
         {{ _nginx_host_rproxy }}
+
+- block:
+    - name: cache | Save shares cache
+      copy:
+        content: "{{ _nginx_shares_cache | to_yaml }}"
+        dest: "{{ _nginx_shares_cache_file }}"
+
+    - name: cache | Save rproxy cache
+      copy:
+        content: "{{ _nginx_rproxy_cache | to_yaml }}"
+        dest: "{{ _nginx_rproxy_cache_file }}"
+
+  delegate_to: localhost
+  run_once: true
 
 - block:
     - name: cache | Build group of hosts using nginx
