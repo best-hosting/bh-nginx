@@ -349,8 +349,40 @@
       loop: >-
         {{ _nginx_host_rproxy }}
 
-- name:
-  assert:
-    that:
-      - 1 == 2
+- block:
+    - name: define | Build nginx group (all hosts using nginx)
+      group_by:
+        key: "nginx"
+      loop: "{{ nginx_host_rproxy + nginx_host_shares }}"
+
+    - name: define | Build nginx groups (by vhost name)
+      group_by:
+        key: "nginx_{{ item.vhost }}"
+      loop: "{{ nginx_host_rproxy }}"
+
+    - name: define | Show host groups
+      debug:
+        var: groups
+      run_once: true
+
+- block:
+    - name: define | Prepare nginx groups yaml
+      set_fact:
+        groups_yaml: >-
+          {{ groups_yaml | combine(
+                      { item.key :
+                          { 'hosts' : dict(item.value | zip_longest([], fillvalue={})) }
+                      }
+                    )
+          }}
+      when: item.key.startswith('nginx')
+      loop: "{{ groups | dict2items }}"
+
+    - name: define | Save nginx groups to inventory
+      copy:
+        content: "{{ groups_yaml | to_yaml }}"
+        dest: "{{ nginx_group_file }}"
+
+  delegate_to: 'localhost'
+  run_once: true
 

@@ -71,3 +71,6 @@ nginx_host_shares: []
 #   - 'name' - location. Required.
 #   - 'proxy_pass' - url of proxied server. Required.
 nginx_host_rproxy: []
+
+# File where to save dynamic groups.
+nginx_group_file: "{{ inventory_dir + '/nginx_groups.yml' }}"

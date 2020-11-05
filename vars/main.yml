@@ -13,6 +13,9 @@ _nginx_run_vhosts: "{{ nginx_host_shares + nginx_host_rproxy }}"
 # All nginx servers, used by the current host.
 _nginx_servers: []
 
+# Calculated dynamic groups.
+groups_yaml: {}
+
 # Shares and rproxy cache files.
 _nginx_shares_cache_file: "{{ playbook_dir + '/nginx_shares_cache.yml' }}"
 _nginx_rproxy_cache_file: "{{ playbook_dir + '/nginx_rproxy_cache.yml' }}"
