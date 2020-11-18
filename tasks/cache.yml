@@ -19,22 +19,22 @@
     - name: cache | Load shares cache
       include_vars:
         file: "{{ _nginx_shares_cache_file }}"
-        name: _nginx_shares_cache_r
+        name: _nginx_shares_read_cache
       when: _nginx_shares_cache_file_stats.stat.exists
 
     - name: cache | Load rproxy cache
       include_vars:
         file: "{{ _nginx_rproxy_cache_file }}"
-        name: _nginx_rproxy_cache_r
+        name: _nginx_rproxy_read_cache
       when: _nginx_rproxy_cache_file_stats.stat.exists
 
     - name: cache | Loaded shares cache
       debug:
-        var: _nginx_shares_cache_r
+        var: _nginx_shares_read_cache
 
     - name: cache | Loaded rproxy cache
       debug:
-        var: _nginx_rproxy_cache_r
+        var: _nginx_rproxy_read_cache
 
   delegate_to: localhost
   run_once: true
@@ -58,23 +58,17 @@
         item_name: >-
           {{ item.0.inventory_hostname }}
         cached_vhost: >-
-          {{ _nginx_shares_cache_r[item.1.vhost]
-              if _nginx_shares_cache_r[item.1.vhost] is defined
-                else {}
-          }}
+          {{ _nginx_shares_read_cache[item.1.vhost] | default({}) }}
         cached_server: >-
-          {{ cached_vhost[item.1.server] if cached_vhost[item.1.server] is defined else [] }}
+          {{ cached_vhost[item.1.server] | default([]) }}
         cached_servers: >-
-          {{ cached_vhost['servers'] if cached_vhost['servers'] is defined else [] }}
+          {{ cached_vhost['servers'] | default([]) }}
         value_vhost: >-
-          {{ _nginx_shares_all[item.1.vhost]
-              if _nginx_shares_all[item.1.vhost] is defined
-                else {}
-          }}
+          {{ _nginx_shares_all[item.1.vhost] | default({}) }}
         value_server: >-
-          {{ value_vhost[item.1.server] if value_vhost[item.1.server] is defined else [] }}
+          {{ value_vhost[item.1.server] | default([]) }}
         value_servers: >-
-          {{ value_vhost['servers'] if value_vhost['servers'] is defined else [] }}
+          {{ value_vhost['servers'] | default([]) }}
       loop: >-
         {{ hostvars.values() | subelements('_nginx_host_shares', skip_missing=True) }}
 
@@ -94,23 +88,17 @@
         item_name: >-
           {{ item.0.inventory_hostname }}
         cached_vhost: >-
-          {{ _nginx_rproxy_cache_r[item.1.vhost]
-              if _nginx_rproxy_cache_r[item.1.vhost] is defined
-                else {}
-          }}
+          {{ _nginx_rproxy_read_cache[item.1.vhost] | default({}) }}
         cached_server: >-
-          {{ cached_vhost[item.1.server] if cached_vhost[item.1.server] is defined else [] }}
+          {{ cached_vhost[item.1.server] | default([]) }}
         cached_servers: >-
-          {{ cached_vhost['servers'] if cached_vhost['servers'] is defined else [] }}
+          {{ cached_vhost['servers'] | default([]) }}
         value_vhost: >-
-          {{ _nginx_rproxy_all[item.1.vhost]
-              if _nginx_rproxy_all[item.1.vhost] is defined
-                else {}
-          }}
+          {{ _nginx_rproxy_all[item.1.vhost] | default({}) }}
         value_server: >-
-          {{ value_vhost[item.1.server] if value_vhost[item.1.server] is defined else [] }}
+          {{ value_vhost[item.1.server] | default([]) }}
         value_servers: >-
-          {{ value_vhost['servers'] if value_vhost['servers'] is defined else [] }}
+          {{ value_vhost['servers'] | default([]) }}
       loop: >-
         {{ hostvars.values() | subelements('_nginx_host_rproxy', skip_missing=True) }}
 
@@ -125,12 +113,12 @@
     - name: cache | Update shares cache
       set_fact:
         _nginx_shares_cache: >-
-          {{ _nginx_shares_cache_r | combine(_nginx_shares_all) }}
+          {{ _nginx_shares_read_cache | combine(_nginx_shares_all) }}
 
     - name: cache | Update rproxy cache
       set_fact:
         _nginx_rproxy_cache: >-
-          {{ _nginx_rproxy_cache_r | combine(_nginx_rproxy_all) }}
+          {{ _nginx_rproxy_read_cache | combine(_nginx_rproxy_all) }}
 
   run_once: true
 
@@ -140,8 +128,7 @@
         that:
           - not same_vhosts
         fail_msg: >-
-          {{ "The same vhost name can't be used for both share and rproxy."
-                + " Now the same vhosts are: " + same_vhosts | join(',')
+          {{ "Some vhosts are used for both share and rproxy: " + same_vhosts | join(',')
           }}
       # ' - fix vim highlightning.
       vars:

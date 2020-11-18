@@ -20,13 +20,18 @@ groups_yaml: {}
 _nginx_shares_cache_file: "{{ cache_dir + '/nginx_shares.yml' }}"
 _nginx_rproxy_cache_file: "{{ cache_dir + '/nginx_rproxy.yml' }}"
 # Variables _read_ from cache file.
-_nginx_shares_cache_r: {}
-_nginx_rproxy_cache_r: {}
-# Variables _calculated_ during current play.
+_nginx_shares_read_cache: {}
+_nginx_rproxy_read_cache: {}
+# All '_nginx_host_shares' configs from all hosts, including cache. Calculated
+# during current play.
 _nginx_shares_all: {}
+# All '_nginx_host_rproxy' configs from all hosts, including cache. Calculated
+# during current play.
 _nginx_rproxy_all: {}
-# Merged values read from cache with values caclculated from current play.
-# This will be saved in cache for later use.
+# Merged of '_nginx_shares_all' and cache.  This will be saved in cache for
+# later use.
 _nginx_shares_cache: {}
+# Merged of '_nginx_rproxy_all' and cache.  This will be saved in cache for
+# later use.
 _nginx_rproxy_cache: {}
 
