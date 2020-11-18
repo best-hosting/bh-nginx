@@ -30,6 +30,7 @@
     - nginx_cache
     - nginx_shares
     - nginx_rproxy
+    - ssl
 
 - name: Define variables
   import_tasks: cache.yml
