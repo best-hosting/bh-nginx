@@ -70,7 +70,10 @@
         value_servers: >-
           {{ value_vhost['servers'] | default([]) }}
       loop: >-
-        {{ hostvars.values() | subelements('_nginx_host_shares', skip_missing=True) }}
+        {{ hostvars.values()
+            | list
+            | subelements('_nginx_host_shares', skip_missing=True)
+        }}
 
     - name: cache | Rebuild rproxy cache for play hosts
       set_fact:
@@ -100,7 +103,10 @@
         value_servers: >-
           {{ value_vhost['servers'] | default([]) }}
       loop: >-
-        {{ hostvars.values() | subelements('_nginx_host_rproxy', skip_missing=True) }}
+        {{ hostvars.values()
+            | list
+            | subelements('_nginx_host_rproxy', skip_missing=True)
+        }}
 
     - name: cache | Show shares cache for play hosts
       debug:
